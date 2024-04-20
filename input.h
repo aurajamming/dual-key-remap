@@ -6,6 +6,6 @@ enum Direction {
     DOWN,
 };
 
-void send_input(int scan_code, int virt_code, enum Direction direction);
+void send_input(int scan_code, int virt_code, enum Direction direction, int remap_id);
 
 #endif

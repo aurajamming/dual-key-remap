@@ -1,3 +1,8 @@
-remap_key=CAPSLOCK
-when_alone=ESCAPE
-with_other=CTRL
+remap_key=SPACE
+when_alone=SPACE
+with_other=RIGHT_CTRL
+
+hold_delay=70
+tap_timeout=500
+doublepress_timeout=500
+debug=0

@@ -16,18 +16,18 @@
 // with a real pointer used by another application.
 // Note: This approach is what AHK used, we should a different key id
 // from them to avoid collisions.
-#define INJECTED_KEY_ID 0xFFC3CED7
+#define INJECTED_KEY_ID (0xFFC3CED7 & 0xFFFFFF00)
 
 struct Remap * g_remap_list;
 HHOOK g_keyboard_hook;
 HHOOK g_mouse_hook;
 
-void send_input(int scan_code, int virt_code, enum Direction direction)
+void send_input(int scan_code, int virt_code, enum Direction direction, int remap_id)
 {
     INPUT input = {0};
     input.type = INPUT_KEYBOARD;
     input.ki.time = 0;
-    input.ki.dwExtraInfo = (ULONG_PTR)INJECTED_KEY_ID;
+    input.ki.dwExtraInfo = (ULONG_PTR)(INJECTED_KEY_ID | remap_id);
 
     input.ki.wScan = scan_code;
     input.ki.wVk = virt_code;
@@ -53,7 +53,7 @@ LRESULT CALLBACK mouse_callback(int msg_code, WPARAM w_param, LPARAM l_param) {
         case WM_NCXBUTTONDOWN:
         case WM_XBUTTONDOWN:
             // Since no key corresponds to the mouse inputs; use a dummy input
-            block_input = handle_input(0, MOUSE_DUMMY_VK, 0, 0);
+            block_input = handle_input(0, MOUSE_DUMMY_VK, 0, 0, 0, 0);
         }
     }
 
@@ -70,12 +70,13 @@ LRESULT CALLBACK keyboard_callback(int msg_code, WPARAM w_param, LPARAM l_param)
         enum Direction direction = (w_param == WM_KEYDOWN || w_param == WM_SYSKEYDOWN)
             ? DOWN
             : UP;
-        int is_injected = data->dwExtraInfo == INJECTED_KEY_ID;
         block_input = handle_input(
             data->scanCode,
             data->vkCode,
             direction,
-            is_injected
+            data->time,
+            data->flags,
+            data->dwExtraInfo
         );
     }
 
@@ -87,7 +88,7 @@ void create_console()
     if (AllocConsole()) {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
-        printf("== dual-key-remap (version: %s, author: %s) ==\n\n", VERSION, AUTHOR);
+        printf("== dual-key-remap (version: %s, author: %s, adapted by ulixxe) ==\n\n", VERSION, AUTHOR);
     }
 }
 
