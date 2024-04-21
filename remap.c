@@ -39,6 +39,7 @@ int g_debug = 0;
 int g_hold_delay = 0;
 int g_tap_timeout = 0;
 int g_doublepress_timeout = 0;
+int g_scancode = 0;
 struct Remap * g_remap_list;
 struct Remap * g_remap_parsee = NULL;
 
@@ -196,9 +197,9 @@ int event_other_input(int virt_code, boolean key_up, DWORD time, int remap_id)
 {
     struct Remap * remap = g_remap_list;
     while(remap) {
-        if (remap->id != remap_id) {
+        if ((remap->id != remap_id) && !key_up) {
             if (remap->state == HELD_DOWN_ALONE) {
-                if (!key_up && (g_hold_delay > 0) && (time - remap->time < g_hold_delay)) {
+                if ((g_hold_delay > 0) && (time - remap->time < g_hold_delay)) {
                     remap->state = TAP;
                     send_key_def_input("when_alone", remap->to_when_alone, DOWN, remap->id);
                 } else {
@@ -290,6 +291,11 @@ int load_config_line(char * line, int linenum)
 
     if (sscanf(line, "doublepress_timeout=%d", &g_doublepress_timeout)) {
         return 0;
+    }
+
+    if (sscanf(line, "scancode=%d", &g_scancode)) {
+        if (g_scancode == 1 || g_scancode == 0)
+            return 0;
     }
 
     // Handle key remappings

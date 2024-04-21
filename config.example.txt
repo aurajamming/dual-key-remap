@@ -5,4 +5,5 @@ with_other=RIGHT_CTRL
 hold_delay=70
 tap_timeout=500
 doublepress_timeout=500
+scancode=0
 debug=0
