@@ -2,8 +2,15 @@ remap_key=SPACE
 when_alone=SPACE
 with_other=RIGHT_CTRL
 
-hold_delay=70
+# hyper key with simple remapping
+remap_key=RIGHT_ALT
+when_alone=CTRL
+when_alone=ALT
+when_alone=SHIFT
+when_alone=LEFT_WIN
+
+hold_delay=60
 tap_timeout=500
-doublepress_timeout=500
+doublepress_timeout=200
 scancode=0
 debug=0

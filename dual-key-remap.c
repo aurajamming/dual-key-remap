@@ -119,7 +119,7 @@ int load_config_file(wchar_t * path)
         }
     };
     fclose(file);
-    return 0;
+    return load_config_line(NULL, linenum++);
 }
 
 void put_config_path(wchar_t * path)
