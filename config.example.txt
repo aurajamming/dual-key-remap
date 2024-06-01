@@ -2,6 +2,10 @@ remap_key=SPACE
 when_alone=SPACE
 with_other=RIGHT_CTRL
 
+remap_key=LEFT_CTRL
+when_alone=LEFT_CTRL
+when_doublepress=SHIFT
+
 # hyper key with simple remapping
 remap_key=RIGHT_ALT
 when_alone=CTRL

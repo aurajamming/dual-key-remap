@@ -30,13 +30,13 @@ void send_input(int scan_code, int virt_code, enum Direction direction, int rema
     input.ki.dwExtraInfo = (ULONG_PTR)(INJECTED_KEY_ID | remap_id);
 
     input.ki.wScan = scan_code;
-    input.ki.wVk = (g_scancode ? 0 : virt_code);
+    input.ki.wVk = ((g_scancode && scan_code != 0x00) ? 0 : virt_code);
     // Per MS Docs: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-keybd_even
     // we need to flag whether "the scan code was preceded by a prefix byte having the value 0xE0 (224)"
     int is_extended_key = scan_code>>8 == 0xE0;
     input.ki.dwFlags = (direction == UP ? KEYEVENTF_KEYUP : 0) |
         (is_extended_key ? KEYEVENTF_EXTENDEDKEY : 0) |
-        (g_scancode ? KEYEVENTF_SCANCODE : 0);
+        ((g_scancode && scan_code != 0x00) ? KEYEVENTF_SCANCODE : 0);
 
     SendInput(1, &input, sizeof(INPUT));
 }
