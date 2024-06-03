@@ -54,6 +54,7 @@ int g_doublepress_timeout = 0;
 int g_scancode = 0;
 struct Remap * g_remap_list = NULL;
 struct Remap * g_remap_parsee = NULL;
+struct Remap * g_remap_array[256] = {NULL};
 
 // Debug Logging
 // --------------------------------------
@@ -230,6 +231,61 @@ struct Remap * find_remap_for_virt_code(int virt_code)
     return NULL;
 }
 
+int remap_list_depth()
+{
+    int depth = 0;
+    struct Remap * remap_iter = g_remap_list;
+    while (remap_iter) {
+        depth += 1;
+        remap_iter = remap_iter->next;
+    }
+    return depth;
+}
+
+struct Remap * find_remap(struct Remap * remap)
+{
+    struct Remap * remap_iter = g_remap_list;
+    while (remap_iter) {
+        if (remap_iter == remap) {
+            return remap_iter;
+        }
+        remap_iter = remap_iter->next;
+    }
+    return NULL;
+}
+
+void add_active_remap(struct Remap * remap)
+{
+    if (find_remap(remap) == NULL) {
+        remap->next = g_remap_list;
+        g_remap_list = remap;
+    }
+    //printf("\nList depth = %d", remap_list_depth());
+}
+
+void remove_active_remap(struct Remap * remap)
+{
+    if (g_remap_list == NULL) {
+        //printf("\nList depth = %d", remap_list_depth());
+        return;
+    }
+    if (remap == g_remap_list) {
+        g_remap_list = remap->next;
+        remap->next = NULL;
+        //printf("\nList depth = %d", remap_list_depth());
+        return;
+    }
+    struct Remap * remap_iter = g_remap_list;
+    while (remap_iter->next && remap_iter->next != remap) {
+        remap_iter = remap_iter->next;
+    }
+    if (remap_iter->next) {
+        remap_iter->next = remap->next;
+        remap->next = NULL;
+    }
+    //printf("\nList depth = %d", remap_list_depth());
+}
+
 void send_key_def_input_down(char * input_name, struct KeyDefNode * head, int remap_id)
 {
     struct KeyDefNode * cur = head;
@@ -263,6 +319,7 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
                 send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
             }
         }
+        add_active_remap(remap);
     } else if (remap->state == HELD_DOWN_WITH_OTHER) {
         send_key_def_input_down("with_other", remap->to_with_other, remap->id);
     } else if (remap->state == TAP) {
@@ -288,6 +345,7 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
                 }
             }
         }
+        add_active_remap(remap);
     } else if (remap->state == DOUBLE_TAP) {
         if (remap->to_when_doublepress) {
             send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id);
@@ -335,6 +393,7 @@ int event_remapped_key_up(struct Remap * remap, DWORD time)
             send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
         }
     }
+    remove_active_remap(remap);
     return 1;
 }
 
@@ -387,7 +446,7 @@ int handle_input(int scan_code, int virt_code, int direction, DWORD time, DWORD 
             remap_for_input = NULL;
             remap_id = dwExtraInfo & 0x000000FF;
         } else {
-            remap_for_input = find_remap_for_virt_code(virt_code);
+            remap_for_input = g_remap_array[virt_code & 0xFF];
         }
         if (remap_for_input) {
             if (LLKHF_UP & flags) {
@@ -429,6 +488,10 @@ int load_config_line(char * line, int linenum)
                 return 1;
             }
             g_remap_parsee = NULL;
+        }
+        while (g_remap_list) {
+            g_remap_array[g_remap_list->from->virt_code & 0xFF] = g_remap_list;
+            g_remap_list = g_remap_list->next;
         }
         return 0;
     }
