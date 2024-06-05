@@ -35,8 +35,12 @@ struct Remap
     struct KeyDefNode * to_when_alone;
     struct KeyDefNode * to_with_other;
     struct KeyDefNode * to_when_doublepress;
+    struct KeyDefNode * to_when_tap_lock;
+    struct KeyDefNode * to_when_double_tap_lock;
     int to_when_alone_is_modifier;
     int to_when_doublepress_is_modifier;
+    int tap_lock;
+    int double_tap_lock;
 
     enum State state;
     DWORD time;
@@ -124,7 +128,12 @@ struct KeyDefNode * new_key_node(KEY_DEF * key_def)
     return key_node;
 }
 
-struct Remap * new_remap(KEY_DEF * from, struct KeyDefNode * to_when_alone, struct KeyDefNode * to_with_other, struct KeyDefNode * to_when_doublepress)
+struct Remap * new_remap(KEY_DEF * from,
+                         struct KeyDefNode * to_when_alone,
+                         struct KeyDefNode * to_with_other,
+                         struct KeyDefNode * to_when_doublepress,
+                         struct KeyDefNode * to_when_tap_lock,
+                         struct KeyDefNode * to_when_double_tap_lock)
 {
     struct Remap * remap = malloc(sizeof(struct Remap));
     remap->id = 0;
@@ -132,8 +141,12 @@ struct Remap * new_remap(KEY_DEF * from, struct KeyDefNode * to_when_alone, stru
     remap->to_when_alone = to_when_alone;
     remap->to_with_other = to_with_other;
     remap->to_when_doublepress = to_when_doublepress;
+    remap->to_when_tap_lock = to_when_tap_lock;
+    remap->to_when_double_tap_lock = to_when_double_tap_lock;
     remap->to_when_alone_is_modifier = 0;
     remap->to_when_doublepress_is_modifier = 0;
+    remap->tap_lock = 0;
+    remap->double_tap_lock = 0;
     remap->state = IDLE;
     remap->time = 0;
     remap->next = NULL;
@@ -314,6 +327,7 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
             remap->time = time;
             remap->state = HELD_DOWN_ALONE;
         } else {
+            remap->time = time;
             remap->state = TAP;
             if (remap->to_when_alone) {
                 send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
@@ -328,17 +342,22 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
         }
     } else if (remap->state == TAPPED) {
         if ((g_doublepress_timeout > 0) && (time - remap->time < g_doublepress_timeout)) {
+            remap->time = time;
             remap->state = DOUBLE_TAP;
             if (remap->to_when_doublepress) {
                 send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id);
             } else {
                 send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
             }
+            if (remap->to_when_tap_lock) {
+              remap->tap_lock = 1 - remap->tap_lock;
+            }
         } else {
             if (remap->to_with_other) {
                 remap->time = time;
                 remap->state = HELD_DOWN_ALONE;
             } else {
+                remap->time = time;
                 remap->state = TAP;
                 if (remap->to_when_alone) {
                     send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
@@ -360,13 +379,18 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
 int event_remapped_key_up(struct Remap * remap, DWORD time)
 {
     if (remap->state == HELD_DOWN_ALONE) {
-        if (((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) &&
-            (remap->to_when_alone || remap->to_when_doublepress)) {
+        if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
             remap->time = time;
             remap->state = TAPPED;
             if (remap->to_when_alone) {
                 send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
                 send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+            }
+            if (remap->to_when_tap_lock) {
+                remap->tap_lock = 1 - remap->tap_lock;
+                if (remap->tap_lock == 0) {
+                    send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id);
+                }
             }
         } else {
             remap->state = IDLE;
@@ -375,15 +399,23 @@ int event_remapped_key_up(struct Remap * remap, DWORD time)
         remap->state = IDLE;
         send_key_def_input_up("with_other", remap->to_with_other, remap->id);
     } else if (remap->state == TAP) {
-        if (remap->to_when_doublepress) {
+        if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
             remap->time = time;
             remap->state = TAPPED;
             if (remap->to_when_alone) {
                 send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
             }
+            if (remap->to_when_tap_lock) {
+                remap->tap_lock = 1 - remap->tap_lock;
+                if (remap->tap_lock == 0) {
+                    send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id);
+                }
+            }
         } else {
             remap->state = IDLE;
-            send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+            if (remap->to_when_alone) {
+                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+            }
         }
     } else if (remap->state == DOUBLE_TAP) {
         remap->state = IDLE;
@@ -392,8 +424,18 @@ int event_remapped_key_up(struct Remap * remap, DWORD time)
         } else {
             send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
         }
+        if (remap->to_when_double_tap_lock) {
+            if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
+                remap->double_tap_lock = 1 - remap->double_tap_lock;
+                if (remap->double_tap_lock == 0) {
+                    send_key_def_input_up("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id);
+                }
+            }
+        }
     }
-    remove_active_remap(remap);
+    if (remap->tap_lock == 0 && remap->double_tap_lock == 0) {
+        remove_active_remap(remap);
+    }
     return 1;
 }
 
@@ -420,6 +462,13 @@ int event_other_input(int virt_code, int key_up, DWORD time, int remap_id)
             } else if (remap->state == DOUBLE_TAP) {
                 if (remap->to_when_doublepress && remap->to_when_doublepress_is_modifier) {
                     send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id);
+                }
+            } else {
+                if (remap->double_tap_lock) {
+                    send_key_def_input_down("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id);
+                }
+                if (remap->tap_lock) {
+                    send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id);
                 }
             }
         }
@@ -541,7 +590,7 @@ int load_config_line(char * line, int linenum)
     }
 
     if (g_remap_parsee == NULL) {
-        g_remap_parsee = new_remap(NULL, NULL, NULL, NULL);
+        g_remap_parsee = new_remap(NULL, NULL, NULL, NULL, NULL, NULL);
     }
 
     if (strstr(line, "remap_key=")) {
@@ -557,7 +606,7 @@ int load_config_line(char * line, int linenum)
                 printf("Config error (line %d): Exceeded the maximum limit of 255 remappings.\n", linenum);
                 return 1;
             }
-            g_remap_parsee = new_remap(NULL, NULL, NULL, NULL);
+            g_remap_parsee = new_remap(NULL, NULL, NULL, NULL, NULL, NULL);
         }
         g_remap_parsee->from = key_def;
     } else if (strstr(line, "when_alone=")) {
@@ -578,6 +627,18 @@ int load_config_line(char * line, int linenum)
         } else {
             append_key_node(g_remap_parsee->to_when_doublepress, key_def);
         }
+    } else if (strstr(line, "when_tap_lock=")) {
+        if (g_remap_parsee->to_when_tap_lock == NULL) {
+            g_remap_parsee->to_when_tap_lock = new_key_node(key_def);
+        } else {
+            append_key_node(g_remap_parsee->to_when_tap_lock, key_def);
+        }
+    } else if (strstr(line, "when_double_tap_lock=")) {
+        if (g_remap_parsee->to_when_double_tap_lock == NULL) {
+            g_remap_parsee->to_when_double_tap_lock = new_key_node(key_def);
+        } else {
+            append_key_node(g_remap_parsee->to_when_double_tap_lock, key_def);
+        }
     } else {
         after_eq[0] = 0;
         printf("Config error (line %d): Invalid setting '%s'.\n", linenum, line);
@@ -597,6 +658,8 @@ void reset_config()
         free_key_nodes(remap->to_when_alone);
         free_key_nodes(remap->to_with_other);
         free_key_nodes(remap->to_when_doublepress);
+        free_key_nodes(remap->to_when_tap_lock);
+        free_key_nodes(remap->to_when_double_tap_lock);
         free(remap);
     }
     g_remap_list = NULL;

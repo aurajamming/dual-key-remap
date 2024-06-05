@@ -4,7 +4,9 @@ with_other=RIGHT_CTRL
 
 remap_key=LEFT_CTRL
 when_alone=LEFT_CTRL
-when_doublepress=SHIFT
+when_tap_lock=SHIFT
+when_doublepress=LEFT_ALT
+when_double_tap_lock=LEFT_WIN
 
 # hyper key with simple remapping
 remap_key=RIGHT_ALT
