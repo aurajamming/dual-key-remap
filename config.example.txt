@@ -2,10 +2,37 @@ remap_key=SPACE
 when_alone=SPACE
 with_other=RIGHT_CTRL
 
-remap_key=LEFT_CTRL
-when_alone=LEFT_CTRL
+# first layer for vi movements
+remap_key=KEY_H
+layer=layer1
+when_alone=LEFT
+
+remap_key=KEY_J
+layer=layer1
+when_alone=DOWN
+
+remap_key=KEY_K
+layer=layer1
+when_alone=UP
+
+remap_key=KEY_L
+layer=layer1
+when_alone=RIGHT
+
+# second layer
+remap_key=KEY_H
+layer=layer2
+when_alone=HOME
+
+remap_key=KEY_L
+layer=layer2
+when_alone=END
+
+# layer selector
+remap_key=CAPSLOCK
+when_alone=layer1
 when_tap_lock=SHIFT
-when_doublepress=LEFT_ALT
+when_doublepress=layer2
 when_double_tap_lock=LEFT_WIN
 
 # hyper key with simple remapping
@@ -15,7 +42,7 @@ when_alone=ALT
 when_alone=SHIFT
 when_alone=LEFT_WIN
 
-hold_delay=60
+hold_delay=70
 tap_timeout=500
 doublepress_timeout=200
 scancode=0
