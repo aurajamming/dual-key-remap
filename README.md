@@ -1,3 +1,13 @@
+# Added features to ililim/dual-key-remap v0.8:
+
+1. Tap timeout and auto repeat keypress.
+2. Delay for hold keypress.
+3. Multiple modifiers.
+4. Double press remapping.
+5. Remap locking.
+6. Layers (with layer lock ideas by [Pascal Getreuer](https://getreuer.info/posts/keyboards/layer-lock/index.html)).
+7. Mouse emulation (with Orbital Mouse ideas by [Pascal Getreuer](https://getreuer.info/posts/keyboards/orbital-mouse/index.html)).
+
 # Windows Dual Key Remap: Capslock to Ctrl/Escape
 
 Remap any key to any other two keys on Windows. Most commonly used to remap CapsLock to Escape when pressed alone and Ctrl when pressed with other keys. Written in C to run at the lowest Windows API level for speed and reliability 🔥.

@@ -1,6 +1,39 @@
 remap_key=SPACE
 when_alone=SPACE
 with_other=RIGHT_CTRL
+with_other=layer0
+
+# disable Windows Start menu when tapped
+remap_key=LEFT_WIN
+with_other=LEFT_WIN
+
+# hyper key with simple remapping
+remap_key=RIGHT_ALT
+when_alone=CTRL
+when_alone=ALT
+when_alone=SHIFT
+when_alone=LEFT_WIN
+
+# layer selectors
+remap_key=LEFT_CTRL
+layer=layer0
+when_alone=layer1
+when_doublepress=layer3
+
+# layer1 lock
+remap_key=SPACE
+layer=layer1
+when_tap_lock=layer1
+
+# layer2 lock
+remap_key=SPACE
+layer=layer2
+when_tap_lock=layer2
+
+# layer3 lock
+remap_key=SPACE
+layer=layer3
+when_tap_lock=layer3
 
 # first layer for vi movements
 remap_key=KEY_H
@@ -28,22 +61,101 @@ remap_key=KEY_L
 layer=layer2
 when_alone=END
 
-# layer selector
-remap_key=CAPSLOCK
-when_alone=layer1
-when_tap_lock=SHIFT
-when_doublepress=layer2
-when_double_tap_lock=LEFT_WIN
+# third layer for mouse emulation
+remap_key=KEY_A
+layer=layer3
+when_alone=MOUSE_LEFT
 
-# hyper key with simple remapping
-remap_key=RIGHT_ALT
-when_alone=CTRL
-when_alone=ALT
-when_alone=SHIFT
-when_alone=LEFT_WIN
+remap_key=KEY_S
+layer=layer3
+when_alone=MOUSE_DOWN
 
+remap_key=KEY_D
+layer=layer3
+when_alone=MOUSE_UP
+
+remap_key=KEY_F
+layer=layer3
+when_alone=MOUSE_RIGHT
+
+remap_key=KEY_H
+layer=layer3
+when_alone=MOUSE_STEER_LEFT
+
+remap_key=KEY_J
+layer=layer3
+when_alone=MOUSE_BACKWARD
+
+remap_key=KEY_K
+layer=layer3
+when_alone=MOUSE_FORWARD
+
+remap_key=KEY_L
+layer=layer3
+when_alone=MOUSE_STEER_RIGHT
+
+remap_key=KEY_U
+layer=layer3
+when_alone=MOUSE_WHEEL_UP
+
+remap_key=KEY_N
+layer=layer3
+when_alone=MOUSE_WHEEL_DOWN
+
+remap_key=KEY_T
+layer=layer3
+when_alone=MOUSE_WHEEL_LEFT
+
+remap_key=KEY_Y
+layer=layer3
+when_alone=MOUSE_WHEEL_RIGHT
+
+remap_key=KEY_I
+layer=layer3
+when_alone=MOUSE_LBUTTON
+
+remap_key=KEY_O
+layer=layer3
+when_alone=MOUSE_MBUTTON
+
+remap_key=KEY_P
+layer=layer3
+when_alone=MOUSE_RBUTTON
+
+remap_key=KEY_M
+layer=layer3
+when_alone=MOUSE_SBUTTON
+
+remap_key=COMMA
+layer=layer3
+when_alone=MOUSE_SHOLD
+
+remap_key=PERIOD
+layer=layer3
+when_alone=MOUSE_SRELEASE
+
+remap_key=KEY_1
+layer=layer3
+when_alone=MOUSE_LBUTTON_SEL
+
+remap_key=KEY_2
+layer=layer3
+when_alone=MOUSE_MBUTTON_SEL
+
+remap_key=KEY_3
+layer=layer3
+when_alone=MOUSE_RBUTTON_SEL
+
+remap_key=KEY_4
+layer=layer3
+when_alone=MOUSE_XBUTTON1_SEL
+
+remap_key=KEY_5
+layer=layer3
+when_alone=MOUSE_XBUTTON2_SEL
+
+# configurations
 hold_delay=70
 tap_timeout=500
 doublepress_timeout=200
-scancode=0
 debug=0

@@ -218,6 +218,59 @@ typedef const struct KeyDef KEY_DEF;
 #define SK_US_SLASH 0x35 // /? key on US keyboards
 #define SK_US_TILDE 0x29 // `~ key on US keyboards
 
+enum {
+  /** Move up. */
+  MS_U = 1,
+  /** Move down. */
+  MS_D = 2,
+  /** Move left. */
+  MS_L = 3,
+  /** Move right. */
+  MS_R = 4,
+  /** Move forward. */
+  MS_F = 5,
+  /** Move backward. */
+  MS_B = 6,
+  /** Steer left (counter-clockwise). */
+  MS_S_L = 7,
+  /** Steer right (clockwise). */
+  MS_S_R = 8,
+  /** Mouse wheel up. */
+  MS_W_U = 9,
+  /** Mouse wheel down. */
+  MS_W_D = 10,
+  /** Mouse wheel left. */
+  MS_W_L = 11,
+  /** Mouse wheel right. */
+  MS_W_R = 12,
+  /** Press mouse button 1. */
+  MS_BTN1 = 13,
+  /** Press mouse button 2. */
+  MS_BTN2 = 14,
+  /** Press mouse button 3. */
+  MS_BTN3 = 15,
+  /** Press mouse button 4. */
+  MS_BTN4 = 16,
+  /** Press mouse button 5. */
+  MS_BTN5 = 17,
+  /** Press the selected mouse button. */
+  MS_BTNS = 18,
+  /** Hold the selected mouse button. */
+  MS_HLDS = 19,
+  /** Release the selected mouse button. */
+  MS_RELS = 20,
+  /** Select mouse button 1. */
+  MS_SEL1 = 21,
+  /** Select mouse button 2. */
+  MS_SEL2 = 22,
+  /** Select mouse button 3. */
+  MS_SEL3 = 23,
+  /** Select mouse button 4. */
+  MS_SEL4 = 24,
+  /** Select mouse button 5. */
+  MS_SEL5 = 25,
+};
+
 // The table of configurable key names and their respective codes.
 //
 // We identify the virtual codes with a binary flag.
@@ -339,6 +392,130 @@ KEY_DEF key_table[] = {
     {"US_SEMI", SK_US_SEMI, VK_US_SEMI, 0}, // ;: key on US keyboards
     {"US_SLASH", SK_US_SLASH, VK_US_SLASH, 0}, // /? key on US keyboards
     {"US_TILDE", SK_US_TILDE, VK_US_TILDE, 0}, // `~ key on US keyboards
+
+    {"MOUSE_UP", MS_U, 0, 0}, // Move up
+    {"MOUSE_DOWN", MS_D, 0, 0}, // Move down
+    {"MOUSE_LEFT", MS_L, 0, 0}, // Move left
+    {"MOUSE_RIGHT", MS_R, 0, 0}, // Move right
+    {"MOUSE_FORWARD", MS_F, 0, 0}, // Move forward
+    {"MOUSE_BACKWARD", MS_B, 0, 0}, // Move backward
+    {"MOUSE_STEER_LEFT", MS_S_L, 0, 0}, // Steer left (counter-clockwise)
+    {"MOUSE_STEER_RIGHT", MS_S_R, 0, 0}, // Steer right (clockwise)
+    {"MOUSE_WHEEL_UP", MS_W_U, 0, 0}, // Mouse wheel up
+    {"MOUSE_WHEEL_DOWN", MS_W_D, 0, 0}, // Mouse wheel down
+    {"MOUSE_WHEEL_LEFT", MS_W_L, 0, 0}, // Mouse wheel left
+    {"MOUSE_WHEEL_RIGHT", MS_W_R, 0, 0}, // Mouse wheel right
+    {"MOUSE_LBUTTON", MS_BTN1, 0, 0}, // Press mouse button 1
+    {"MOUSE_RBUTTON", MS_BTN2, 0, 0}, // Press mouse button 2
+    {"MOUSE_MBUTTON", MS_BTN3, 0, 0}, // Press mouse button 3
+    {"MOUSE_XBUTTON1", MS_BTN4, 0, 0}, // Press mouse button 4
+    {"MOUSE_XBUTTON2", MS_BTN5, 0, 0}, // Press mouse button 5
+    {"MOUSE_SBUTTON", MS_BTNS, 0, 0}, // Press the selected mouse button
+    {"MOUSE_SHOLD", MS_HLDS, 0, 0}, // Hold the selected mouse button
+    {"MOUSE_SRELEASE", MS_RELS, 0, 0}, // Release the selected mouse button
+    {"MOUSE_LBUTTON_SEL", MS_SEL1, 0, 0}, // Select mouse button 1
+    {"MOUSE_RBUTTON_SEL", MS_SEL2, 0, 0}, // Select mouse button 2
+    {"MOUSE_MBUTTON_SEL", MS_SEL3, 0, 0}, // Select mouse button 3
+    {"MOUSE_XBUTTON1_SEL", MS_SEL4, 0, 0}, // Select mouse button 4
+    {"MOUSE_XBUTTON2_SEL", MS_SEL5, 0, 0}, // Select mouse button 5
+};
+
+KEY_DEF KEY_ARRAY[256] = {
+    [VK_LEFT_CTRL] = {"LEFT_CTRL", SK_LEFT_CTRL, VK_LEFT_CTRL, 1},
+    [VK_RIGHT_CTRL] = {"RIGHT_CTRL", SK_RIGHT_CTRL, VK_RIGHT_CTRL, 1},
+    [VK_LEFT_SHIFT] = {"LEFT_SHIFT", SK_LEFT_SHIFT, VK_LEFT_SHIFT, 1},
+    [VK_RIGHT_SHIFT] = {"RIGHT_SHIFT", SK_RIGHT_SHIFT, VK_RIGHT_SHIFT, 1},
+    [VK_LEFT_ALT] = {"LEFT_ALT", SK_LEFT_ALT, VK_LEFT_ALT, 1},
+    [VK_RIGHT_ALT] = {"RIGHT_ALT", SK_RIGHT_ALT, VK_RIGHT_ALT, 1},
+    [VK_LEFT_WIN] = {"LEFT_WIN", SK_LEFT_WIN, VK_LEFT_WIN, 1},
+    [VK_RIGHT_WIN] = {"RIGHT_WIN", SK_RIGHT_WIN, VK_RIGHT_WIN, 1},
+    [VK_BACKSPACE] = {"BACKSPACE", SK_BACKSPACE, VK_BACKSPACE, 0},
+    [VK_CAPSLOCK] = {"CAPSLOCK", SK_CAPSLOCK, VK_CAPSLOCK, 1},
+    [VK_ENTER] = {"ENTER", SK_ENTER, VK_ENTER, 0},
+    [VK_ESCAPE] = {"ESCAPE", SK_ESCAPE, VK_ESCAPE, 0},
+    [VK_SPACE] = {"SPACE", SK_SPACE, VK_SPACE, 0},
+    [VK_TAB] = {"TAB", SK_TAB, VK_TAB, 0},
+    [VK_UP] = {"UP", SK_UP, VK_UP, 0},
+    [VK_LEFT] = {"LEFT", SK_LEFT, VK_LEFT, 0},
+    [VK_RIGHT] = {"RIGHT", SK_RIGHT, VK_RIGHT, 0},
+    [VK_DOWN] = {"DOWN", SK_DOWN, VK_DOWN, 0},
+    [VK_F1] = {"F1", SK_F1, VK_F1, 0},
+    [VK_F2] = {"F2", SK_F2, VK_F2, 0},
+    [VK_F3] = {"F3", SK_F3, VK_F3, 0},
+    [VK_F4] = {"F4", SK_F4, VK_F4, 0},
+    [VK_F5] = {"F5", SK_F5, VK_F5, 0},
+    [VK_F6] = {"F6", SK_F6, VK_F6, 0},
+    [VK_F7] = {"F7", SK_F7, VK_F7, 0},
+    [VK_F8] = {"F8", SK_F8, VK_F8, 0},
+    [VK_F9] = {"F9", SK_F9, VK_F9, 0},
+    [VK_F10] = {"F10", SK_F10, VK_F10, 0},
+    [VK_F11] = {"F11", SK_F11, VK_F11, 0},
+    [VK_F12] = {"F12", SK_F12, VK_F12, 0},
+    [VK_F13] = {"F13", SK_F13, VK_F13, 0},
+    [VK_F14] = {"F14", SK_F14, VK_F14, 0},
+    [VK_F15] = {"F15", SK_F15, VK_F15, 0},
+    [VK_F16] = {"F16", SK_F16, VK_F16, 0},
+    [VK_F17] = {"F17", SK_F17, VK_F17, 0},
+    [VK_F18] = {"F18", SK_F18, VK_F18, 0},
+    [VK_F19] = {"F19", SK_F19, VK_F19, 0},
+    [VK_F20] = {"F20", SK_F20, VK_F20, 0},
+    [VK_F21] = {"F21", SK_F21, VK_F21, 0},
+    [VK_F22] = {"F22", SK_F22, VK_F22, 0},
+    [VK_F23] = {"F23", SK_F23, VK_F23, 0},
+    [VK_F24] = {"F24", SK_F24, VK_F24, 0},
+    [VK_KEY_0] = {"KEY_0", SK_KEY_0, VK_KEY_0, 0},
+    [VK_KEY_1] = {"KEY_1", SK_KEY_1, VK_KEY_1, 0},
+    [VK_KEY_2] = {"KEY_2", SK_KEY_2, VK_KEY_2, 0},
+    [VK_KEY_3] = {"KEY_3", SK_KEY_3, VK_KEY_3, 0},
+    [VK_KEY_4] = {"KEY_4", SK_KEY_4, VK_KEY_4, 0},
+    [VK_KEY_5] = {"KEY_5", SK_KEY_5, VK_KEY_5, 0},
+    [VK_KEY_6] = {"KEY_6", SK_KEY_6, VK_KEY_6, 0},
+    [VK_KEY_7] = {"KEY_7", SK_KEY_7, VK_KEY_7, 0},
+    [VK_KEY_8] = {"KEY_8", SK_KEY_8, VK_KEY_8, 0},
+    [VK_KEY_9] = {"KEY_9", SK_KEY_9, VK_KEY_9, 0},
+    [VK_KEY_A] = {"KEY_A", SK_KEY_A, VK_KEY_A, 0},
+    [VK_KEY_B] = {"KEY_B", SK_KEY_B, VK_KEY_B, 0},
+    [VK_KEY_C] = {"KEY_C", SK_KEY_C, VK_KEY_C, 0},
+    [VK_KEY_D] = {"KEY_D", SK_KEY_D, VK_KEY_D, 0},
+    [VK_KEY_E] = {"KEY_E", SK_KEY_E, VK_KEY_E, 0},
+    [VK_KEY_F] = {"KEY_F", SK_KEY_F, VK_KEY_F, 0},
+    [VK_KEY_G] = {"KEY_G", SK_KEY_G, VK_KEY_G, 0},
+    [VK_KEY_H] = {"KEY_H", SK_KEY_H, VK_KEY_H, 0},
+    [VK_KEY_I] = {"KEY_I", SK_KEY_I, VK_KEY_I, 0},
+    [VK_KEY_J] = {"KEY_J", SK_KEY_J, VK_KEY_J, 0},
+    [VK_KEY_K] = {"KEY_K", SK_KEY_K, VK_KEY_K, 0},
+    [VK_KEY_L] = {"KEY_L", SK_KEY_L, VK_KEY_L, 0},
+    [VK_KEY_M] = {"KEY_M", SK_KEY_M, VK_KEY_M, 0},
+    [VK_KEY_N] = {"KEY_N", SK_KEY_N, VK_KEY_N, 0},
+    [VK_KEY_O] = {"KEY_O", SK_KEY_O, VK_KEY_O, 0},
+    [VK_KEY_P] = {"KEY_P", SK_KEY_P, VK_KEY_P, 0},
+    [VK_KEY_Q] = {"KEY_Q", SK_KEY_Q, VK_KEY_Q, 0},
+    [VK_KEY_R] = {"KEY_R", SK_KEY_R, VK_KEY_R, 0},
+    [VK_KEY_S] = {"KEY_S", SK_KEY_S, VK_KEY_S, 0},
+    [VK_KEY_T] = {"KEY_T", SK_KEY_T, VK_KEY_T, 0},
+    [VK_KEY_U] = {"KEY_U", SK_KEY_U, VK_KEY_U, 0},
+    [VK_KEY_V] = {"KEY_V", SK_KEY_V, VK_KEY_V, 0},
+    [VK_KEY_W] = {"KEY_W", SK_KEY_W, VK_KEY_W, 0},
+    [VK_KEY_X] = {"KEY_X", SK_KEY_X, VK_KEY_X, 0},
+    [VK_KEY_Y] = {"KEY_Y", SK_KEY_Y, VK_KEY_Y, 0},
+    [VK_KEY_Z] = {"KEY_Z", SK_KEY_Z, VK_KEY_Z, 0},
+    [VK_INSERT] = {"INSERT", SK_INSERT, VK_INSERT, 0},
+    [VK_DELETE] = {"DELETE", SK_DELETE, VK_DELETE, 0},
+    [VK_HOME] = {"HOME", SK_HOME, VK_HOME, 0},
+    [VK_END] = {"END", SK_END, VK_END, 0},
+    [VK_PAGE_UP] = {"PAGE_UP", SK_PAGE_UP, VK_PAGE_UP, 0},
+    [VK_PAGE_DOWN] = {"PAGE_DOWN", SK_PAGE_DOWN, VK_PAGE_DOWN, 0},
+    [VK_PRINT_SCREEN] = {"PRINT_SCREEN", 0, VK_PRINT_SCREEN, 0},
+    [VK_NUMLOCK] = {"NUMLOCK", 0, VK_NUMLOCK, 0},
+    [VK_SCROLLLOCK] = {"SCROLLLOCK", 0, VK_SCROLLLOCK, 0},
+    [VK_PAUSE] = {"PAUSE", 0, VK_PAUSE, 0},
+    [VK_PLUS] = {"PLUS", SK_PLUS, VK_PLUS, 0},
+    [VK_COMMA] = {"COMMA", SK_COMMA, VK_COMMA, 0},
+    [VK_MINUS] = {"MINUS", SK_MINUS, VK_MINUS, 0},
+    [VK_PERIOD] = {"PERIOD", SK_PERIOD, VK_PERIOD, 0},
+    [VK_US_SEMI] = {"US_SEMI", SK_US_SEMI, VK_US_SEMI, 0}, // ;: key on US keyboards
+    [VK_US_SLASH] = {"US_SLASH", SK_US_SLASH, VK_US_SLASH, 0}, // /? key on US keyboards
+    [VK_US_TILDE] = {"US_TILDE", SK_US_TILDE, VK_US_TILDE, 0}, // `~ key on US keyboards
 };
 
 #define KEY_TABLE_LEN (sizeof(key_table) / sizeof(struct KeyDef))
@@ -388,6 +565,11 @@ KEY_DEF * find_key_def_by_virt_code(int code)
         }
     }
     return NULL;
+}
+
+int vk_is_modifier(int code)
+{
+    return (KEY_ARRAY[code & 0xFF]).is_modifier;
 }
 
 // Defaults to the remappable key names per our definitions, but also

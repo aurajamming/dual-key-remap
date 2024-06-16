@@ -6,8 +6,6 @@
 #include "input.h"
 #include "keys.c"
 
-#define INJECTED_KEY_ID (0xFFC3CED7 & 0xFFFFFF00)
-
 // Types
 // --------------------------------------
 
@@ -31,6 +29,7 @@ struct KeyDefNode
 struct Layer {
     char * name;
     int state;
+    int lock;
 
     struct Layer * next;
 };
@@ -75,7 +74,11 @@ int g_debug = 0;
 int g_hold_delay = 0;
 int g_tap_timeout = 0;
 int g_doublepress_timeout = 0;
+int g_rehook_timeout = 1000;
+int g_unlock_timeout = 60000;
 int g_scancode = 0;
+int g_priority = 1;
+int g_last_input = 0;
 struct Remap * g_remap_list = NULL;
 struct Remap * g_remap_parsee = NULL;
 struct RemapNode * g_remap_array[256] = {NULL};
@@ -84,9 +87,9 @@ struct Layer * g_layer_list = NULL;
 // Debug Logging
 // --------------------------------------
 
-char * fmt_dir(enum Direction dir)
+char * fmt_dir(enum Direction direction)
 {
-    return dir ? "DOWN" : "UP";
+    return (direction == DOWN) ? "DOWN" : "UP";
 }
 
 int log_indent_level = 0;
@@ -100,14 +103,14 @@ void print_log_prefix()
     }
 }
 
-void log_handle_input_start(int scan_code, int virt_code, int dir, DWORD flags, ULONG_PTR dwExtraInfo)
+void log_handle_input_start(int scan_code, int virt_code, enum Direction direction, int is_injected, DWORD flags, ULONG_PTR dwExtraInfo)
 {
     if (!g_debug) return;
     print_log_prefix();
     printf("[%s] %s %s (scan:0x%04X virt:0x%02X flags:0x%02X dwExtraInfo:0x%IX)",
-           ((LLKHF_INJECTED & flags) && ((dwExtraInfo & 0xFFFFFF00) == INJECTED_KEY_ID)) ? "output" : "input",
+           (is_injected && ((dwExtraInfo & 0xFFFFFF00) == INJECTED_KEY_ID)) ? "output" : "input",
            friendly_virt_code_name(virt_code),
-           fmt_dir(dir),
+           fmt_dir(direction),
            scan_code, // MapVirtualKeyA(virt_code, MAPVK_VK_TO_VSC_EX)
            virt_code,
            flags,
@@ -115,7 +118,7 @@ void log_handle_input_start(int scan_code, int virt_code, int dir, DWORD flags, 
     log_indent_level++;
 }
 
-void log_handle_input_end(int scan_code, int virt_code, int dir, int block_input)
+void log_handle_input_end(int scan_code, int virt_code, enum Direction direction, int block_input)
 {
     if (!g_debug) return;
     log_indent_level--;
@@ -123,18 +126,18 @@ void log_handle_input_end(int scan_code, int virt_code, int dir, int block_input
         print_log_prefix();
         printf("#blocked-input# %s %s",
             friendly_virt_code_name(virt_code),
-            fmt_dir(dir));
+            fmt_dir(direction));
     }
 }
 
-void log_send_input(char * remap_name, KEY_DEF * key, int dir)
+void log_send_input(char * remap_name, KEY_DEF * key, enum Direction direction)
 {
     if (!g_debug) return;
     print_log_prefix();
     printf("(sending:%s) %s %s",
         remap_name,
         key ? key->name : "???",
-        fmt_dir(dir));
+        fmt_dir(direction));
 }
 
 // Remapping
@@ -154,6 +157,7 @@ struct Layer * new_layer(char * name)
     struct Layer * layer = malloc(sizeof(struct Layer));
     layer->name = strdup(name);
     layer->state = 0;
+    layer->lock = 0;
     layer->next = NULL;
     return layer;
 }
@@ -357,25 +361,46 @@ struct Remap * find_remap(struct Remap * remap)
     return NULL;
 }
 
-void add_active_remap(struct Remap * remap)
+void prepend_active_remap(struct Remap * remap)
 {
     if (find_remap(remap) == NULL) {
         remap->next = g_remap_list;
         g_remap_list = remap;
     }
-    //printf("\nList depth = %d", remap_list_depth());
+    DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
+}
+
+void append_active_remap(struct Remap * remap)
+{
+    if (g_remap_list) {
+        struct Remap * remap_iter = g_remap_list;
+        do {
+            if (remap_iter == remap) {
+                DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
+                return;
+            }
+            if (remap_iter->next == NULL) break;
+            remap_iter = remap_iter->next;
+        } while (1);
+        remap_iter->next = remap;
+        remap->next = NULL;
+    } else {
+        g_remap_list = remap;
+        remap->next = NULL;
+    }
+    DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
 }
 
 void remove_active_remap(struct Remap * remap)
 {
     if (g_remap_list == NULL) {
-        //printf("\nList depth = %d", remap_list_depth());
+        DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
         return;
     }
     if (remap == g_remap_list) {
         g_remap_list = remap->next;
         remap->next = NULL;
-        //printf("\nList depth = %d", remap_list_depth());
+        DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
         return;
     }
     struct Remap * remap_iter = g_remap_list;
@@ -386,31 +411,71 @@ void remove_active_remap(struct Remap * remap)
         remap_iter->next = remap->next;
         remap->next = NULL;
     }
-    //printf("\nList depth = %d", remap_list_depth());
+    DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
 }
 
-void send_key_def_input_down(char * input_name, struct KeyDefNode * head, int remap_id)
+void send_key_def_input_down(char * input_name, struct KeyDefNode * head, int remap_id, struct InputBuffer * input_buffer)
 {
     struct KeyDefNode * cur = head;
     do {
         log_send_input(input_name, cur->key_def, DOWN);
-        send_input(cur->key_def->scan_code, cur->key_def->virt_code, DOWN, remap_id);
+        send_input(cur->key_def->scan_code, cur->key_def->virt_code, DOWN, remap_id, input_buffer);
         cur = cur->next;
     } while(cur != head);
 }
 
-void send_key_def_input_up(char * input_name, struct KeyDefNode * head, int remap_id)
+void send_key_def_input_up(char * input_name, struct KeyDefNode * head, int remap_id, struct InputBuffer * input_buffer)
 {
     struct KeyDefNode * cur = head;
     do {
         cur = cur->previous;
         log_send_input(input_name, cur->key_def, UP);
-        send_input(cur->key_def->scan_code, cur->key_def->virt_code, UP, remap_id);
+        send_input(cur->key_def->scan_code, cur->key_def->virt_code, UP, remap_id, input_buffer);
     } while(cur != head);
 }
 
+void unlock_all(struct InputBuffer * input_buffer)
+{
+    struct Layer * layer_iter = g_layer_list;
+    while (layer_iter) {
+        layer_iter->state = 0;
+        layer_iter->lock = 0;
+        layer_iter = layer_iter->next;
+    }
+    struct Remap * remap_iter = g_remap_list;
+    while(remap_iter) {
+        g_remap_list = remap_iter->next;
+        if (remap_iter->state == HELD_DOWN_ALONE) {
+        } else if (remap_iter->state == HELD_DOWN_WITH_OTHER) {
+            if (remap_iter->to_with_other) {
+                send_key_def_input_up("unlock_with_other", remap_iter->to_with_other, remap_iter->id, input_buffer);
+            }
+        } else if (remap_iter->state == TAP) {
+            if (remap_iter->to_when_alone) {
+                send_key_def_input_up("unlock_when_alone", remap_iter->to_when_alone, remap_iter->id, input_buffer);
+            }
+        } else if (remap_iter->state == DOUBLE_TAP) {
+            if (remap_iter->to_when_doublepress) {
+                send_key_def_input_up("unlock_when_doublepress", remap_iter->to_when_doublepress, remap_iter->id, input_buffer);
+            }
+        }
+        if (remap_iter->double_tap_lock) {
+            send_key_def_input_up("unlock_when_double_tap_lock", remap_iter->to_when_double_tap_lock, remap_iter->id, input_buffer);
+            remap_iter->double_tap_lock = 0;
+        }
+        if (remap_iter->tap_lock) {
+            send_key_def_input_up("unlock_when_tap_lock", remap_iter->to_when_tap_lock, remap_iter->id, input_buffer);
+            remap_iter->tap_lock = 0;
+        }
+        remap_iter->state = IDLE;
+        remap_iter->next = NULL;
+        remap_iter = g_remap_list;
+        DEBUG(1, debug_print(RED, "\nRemap list depth = %d", remap_list_depth()));
+    }
+}
+
 /* @return block_input */
-int event_remapped_key_down(struct Remap * remap, DWORD time)
+int event_remapped_key_down(struct Remap * remap, DWORD time, struct InputBuffer * input_buffer)
 {
     if (remap->state == IDLE) {
         if (remap->to_with_other || remap->to_with_other_layer) {
@@ -423,44 +488,43 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
             remap->time = time;
             remap->state = TAP;
             if (remap->to_when_alone) {
-                send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
+                send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
             }
             if (remap->to_when_alone_layer) {
                 remap->to_when_alone_layer->state = 1;
             }
         }
-        add_active_remap(remap);
+        append_active_remap(remap);
     } else if (remap->state == HELD_DOWN_WITH_OTHER) {
         if (remap->to_with_other) {
-            send_key_def_input_down("with_other", remap->to_with_other, remap->id);
+            send_key_def_input_down("with_other", remap->to_with_other, remap->id, input_buffer);
         }
     } else if (remap->state == TAP) {
         if (remap->to_when_alone) {
-            send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
+            send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
         }
     } else if (remap->state == TAPPED) {
         if ((g_doublepress_timeout > 0) && (time - remap->time < g_doublepress_timeout)) {
             remap->time = time;
             remap->state = DOUBLE_TAP;
-            if (remap->to_when_tap_lock || remap->to_when_tap_lock_layer) {
+            if (remap->to_when_tap_lock) {
                 remap->tap_lock = 1 - remap->tap_lock;
-                if (remap->to_when_tap_lock) {
-                    if (remap->tap_lock == 0) {
-                        send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id);
-                    }
+                if (remap->tap_lock == 0) {
+                    send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id, input_buffer);
                 }
-                if (remap->to_when_tap_lock_layer) {
-                    remap->to_when_tap_lock_layer->state = remap->tap_lock;
-                }
+            }
+            if (remap->to_when_tap_lock_layer) {
+                remap->to_when_tap_lock_layer->lock = 1 - remap->to_when_tap_lock_layer->lock;
+                remap->to_when_tap_lock_layer->state = remap->to_when_tap_lock_layer->lock;
             }
             if (remap->to_when_doublepress_layer) {
                 remap->to_when_doublepress_layer->state = 1;
             }
             if (remap->to_when_doublepress) {
-                send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id);
+                send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id, input_buffer);
             } else if (remap->to_when_doublepress_layer) {
             } else if (remap->to_when_alone) {
-                send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
+                send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
             }
         } else {
             if (remap->to_with_other || remap->to_with_other_layer) {
@@ -473,117 +537,114 @@ int event_remapped_key_down(struct Remap * remap, DWORD time)
                 remap->time = time;
                 remap->state = TAP;
                 if (remap->to_when_alone) {
-                    send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
+                    send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
                 }
                 if (remap->to_when_alone_layer) {
                     remap->to_when_alone_layer->state = 1;
                 }
             }
         }
-        add_active_remap(remap);
+        append_active_remap(remap);
     } else if (remap->state == DOUBLE_TAP) {
         if (remap->to_when_doublepress) {
-            send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id);
+            send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id, input_buffer);
         } else if (remap->to_when_doublepress_layer) {
         } else if (remap->to_when_alone) {
-            send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
+            send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
         }
     }
     return 1;
 }
 
 /* @return block_input */
-int event_remapped_key_up(struct Remap * remap, DWORD time)
+int event_remapped_key_up(struct Remap * remap, DWORD time, struct InputBuffer * input_buffer)
 {
     if (remap->state == HELD_DOWN_ALONE) {
         if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
             remap->time = time;
             remap->state = TAPPED;
             if (remap->to_when_alone) {
-                send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
-                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+                send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
+                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id, input_buffer);
             }
-            if (remap->to_when_tap_lock || remap->to_when_tap_lock_layer) {
+            if (remap->to_when_tap_lock) {
                 remap->tap_lock = 1 - remap->tap_lock;
-                if (remap->to_when_tap_lock) {
-                    if (remap->tap_lock) {
-                        send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id);
-                    } else {
-                        send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id);
-                    }
+                if (remap->tap_lock) {
+                    send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id, input_buffer);
+                } else {
+                    send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id, input_buffer);
                 }
-                if (remap->to_when_tap_lock_layer) {
-                    remap->to_when_tap_lock_layer->state = remap->tap_lock;
-                }
+            }
+            if (remap->to_when_tap_lock_layer) {
+                remap->to_when_tap_lock_layer->lock = 1 - remap->to_when_tap_lock_layer->lock;
+                remap->to_when_tap_lock_layer->state = remap->to_when_tap_lock_layer->lock;
             }
         } else {
             remap->state = IDLE;
         }
         if (remap->to_with_other_layer) {
-            remap->to_with_other_layer->state = 0;
+            remap->to_with_other_layer->state = remap->to_with_other_layer->lock;
         }
     } else if (remap->state == HELD_DOWN_WITH_OTHER) {
         remap->state = IDLE;
         if (remap->to_with_other) {
-            send_key_def_input_up("with_other", remap->to_with_other, remap->id);
+            send_key_def_input_up("with_other", remap->to_with_other, remap->id, input_buffer);
         }
         if (remap->to_with_other_layer) {
-            remap->to_with_other_layer->state = 0;
+            remap->to_with_other_layer->state = remap->to_with_other_layer->lock;
         }
     } else if (remap->state == TAP) {
         if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
             remap->time = time;
             remap->state = TAPPED;
             if (remap->to_when_alone) {
-                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id, input_buffer);
             }
-            if (remap->to_when_tap_lock || remap->to_when_tap_lock_layer) {
+            if (remap->to_when_tap_lock) {
                 remap->tap_lock = 1 - remap->tap_lock;
-                if (remap->to_when_tap_lock) {
-                    if (remap->tap_lock) {
-                        send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id);
-                    } else {
-                        send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id);
-                    }
+                if (remap->tap_lock) {
+                    send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id, input_buffer);
+                } else {
+                    send_key_def_input_up("when_tap_lock", remap->to_when_tap_lock, remap->id, input_buffer);
                 }
-                if (remap->to_when_tap_lock_layer) {
-                    remap->to_when_tap_lock_layer->state = remap->tap_lock;
-                }
+            }
+            if (remap->to_when_tap_lock_layer) {
+                remap->to_when_tap_lock_layer->lock = 1 - remap->to_when_tap_lock_layer->lock;
+                remap->to_when_tap_lock_layer->state = remap->to_when_tap_lock_layer->lock;
             }
         } else {
             remap->state = IDLE;
             if (remap->to_when_alone) {
-                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+                send_key_def_input_up("when_alone", remap->to_when_alone, remap->id, input_buffer);
             }
         }
         if (remap->to_when_alone_layer) {
-            remap->to_when_alone_layer->state = 0;
+            remap->to_when_alone_layer->state = remap->to_when_alone_layer->lock;
         }
     } else if (remap->state == DOUBLE_TAP) {
         remap->state = IDLE;
         if (remap->to_when_doublepress) {
-            send_key_def_input_up("when_doublepress", remap->to_when_doublepress, remap->id);
+            send_key_def_input_up("when_doublepress", remap->to_when_doublepress, remap->id, input_buffer);
         } else if (remap->to_when_doublepress_layer) {
         } else if (remap->to_when_alone) {
-            send_key_def_input_up("when_alone", remap->to_when_alone, remap->id);
+            send_key_def_input_up("when_alone", remap->to_when_alone, remap->id, input_buffer);
         }
-        if (remap->to_when_double_tap_lock || remap->to_when_double_tap_lock_layer) {
-            if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
+        if ((g_tap_timeout == 0) || (time - remap->time < g_tap_timeout)) {
+            if (remap->to_when_double_tap_lock) {
                 remap->double_tap_lock = 1 - remap->double_tap_lock;
-                if (remap->to_when_double_tap_lock) {
-                    if (remap->double_tap_lock) {
-                        send_key_def_input_down("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id);
-                    } else {
-                        send_key_def_input_up("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id);
-                    }
+                if (remap->double_tap_lock) {
+                    send_key_def_input_down("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id, input_buffer);
+                } else {
+                    send_key_def_input_up("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id, input_buffer);
                 }
-                if (remap->to_when_double_tap_lock_layer) {
-                    remap->to_when_double_tap_lock_layer->state = remap->double_tap_lock;
-                }
+            }
+            if (remap->to_when_double_tap_lock_layer) {
+                remap->to_when_double_tap_lock_layer->lock = 1 - remap->to_when_double_tap_lock_layer->lock;
+                remap->to_when_double_tap_lock_layer->state = remap->to_when_double_tap_lock_layer->lock;
             }
         }
         if (remap->to_when_doublepress_layer) {
-            remap->to_when_doublepress_layer->state = 0;
+            remap->to_when_doublepress_layer->state = remap->to_when_doublepress_layer->lock;
         }
     }
     if (remap->tap_lock == 0 && remap->double_tap_lock == 0) {
@@ -593,62 +654,81 @@ int event_remapped_key_up(struct Remap * remap, DWORD time)
 }
 
 /* @return block_input */
-int event_other_input(int virt_code, int key_up, DWORD time, int remap_id)
+int event_other_input(int virt_code, enum Direction direction, DWORD time, int remap_id, struct InputBuffer * input_buffer)
 {
-    struct Remap * remap = g_remap_list;
-    while(remap) {
-        if ((remap->id != remap_id) && !key_up) {
-            if (remap->state == HELD_DOWN_ALONE) {
-                if ((g_hold_delay > 0) && (time - remap->time < g_hold_delay) && remap->to_when_alone) {
-                    remap->state = TAP;
-                    send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
-                } else {
-                    remap->state = HELD_DOWN_WITH_OTHER;
+    int block_input = 0;
+    if (direction == DOWN && !vk_is_modifier(virt_code)) {
+        struct Remap * remap = g_remap_list;
+        while(remap) {
+            if (remap->id != remap_id) {
+                if (remap->state == HELD_DOWN_ALONE) {
+                    if ((g_hold_delay > 0) && (time - remap->time < g_hold_delay) && remap->to_when_alone) {
+                        remap->state = TAP;
+                        send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
+                        block_input = -1;
+                    } else {
+                        remap->state = HELD_DOWN_WITH_OTHER;
+                        if (remap->to_with_other) {
+                            send_key_def_input_down("with_other", remap->to_with_other, remap->id, input_buffer);
+                            block_input = -1;
+                        }
+                    }
+                } else if (remap->state == HELD_DOWN_WITH_OTHER) {
                     if (remap->to_with_other) {
-                        send_key_def_input_down("with_other", remap->to_with_other, remap->id);
+                        send_key_def_input_down("with_other", remap->to_with_other, remap->id, input_buffer);
+                        block_input = -1;
+                    }
+                } else if (remap->state == TAP) {
+                    if (remap->to_when_alone && remap->to_when_alone_is_modifier) {
+                        send_key_def_input_down("when_alone", remap->to_when_alone, remap->id, input_buffer);
+                        block_input = -1;
+                    }
+                } else if (remap->state == DOUBLE_TAP) {
+                    if (remap->to_when_doublepress && remap->to_when_doublepress_is_modifier) {
+                        send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id, input_buffer);
+                        block_input = -1;
+                    }
+                } else {
+                    if (remap->double_tap_lock) {
+                        send_key_def_input_down("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id, input_buffer);
+                        block_input = -1;
+                    }
+                    if (remap->tap_lock) {
+                        send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id, input_buffer);
+                        block_input = -1;
                     }
                 }
-            } else if (remap->state == HELD_DOWN_WITH_OTHER) {
-                if (remap->to_with_other) {
-                    send_key_def_input_down("with_other", remap->to_with_other, remap->id);
-                }
-            } else if (remap->state == TAP) {
-                if (remap->to_when_alone && remap->to_when_alone_is_modifier) {
-                    send_key_def_input_down("when_alone", remap->to_when_alone, remap->id);
-                }
-            } else if (remap->state == DOUBLE_TAP) {
-                if (remap->to_when_doublepress && remap->to_when_doublepress_is_modifier) {
-                    send_key_def_input_down("when_doublepress", remap->to_when_doublepress, remap->id);
-                }
-            } else {
-                if (remap->double_tap_lock && remap->to_when_double_tap_lock) {
-                    send_key_def_input_down("when_double_tap_lock", remap->to_when_double_tap_lock, remap->id);
-                }
-                if (remap->tap_lock && remap->to_when_tap_lock) {
-                    send_key_def_input_down("when_tap_lock", remap->to_when_tap_lock, remap->id);
-                }
+                remap->time = 0; // disable tap and double_tap
             }
-            remap->time = 0; // disable tap and double_tap
+            remap = remap->next;
         }
-        remap = remap->next;
     }
-    return 0;
+    return block_input;
 }
 
 
 /* @return block_input */
-int handle_input(int scan_code, int virt_code, int direction, DWORD time, DWORD flags, ULONG_PTR dwExtraInfo)
+int handle_input(int scan_code, int virt_code, enum Direction direction, DWORD time, int is_injected, DWORD flags, ULONG_PTR dwExtraInfo, struct InputBuffer * input_buffer)
 {
     struct Remap * remap_for_input;
     int block_input;
     int remap_id = 0; // if 0 then no remapped injected key
 
-    log_handle_input_start(scan_code, virt_code, direction, flags, dwExtraInfo);
-    if ((LLKHF_INJECTED & flags) && ((dwExtraInfo & 0xFFFFFF00) != INJECTED_KEY_ID)) {
-        // Note: passthrough of injected keys from other tools. Dual-key-remap works at a lower level.
+    log_handle_input_start(scan_code, virt_code, direction, is_injected, flags, dwExtraInfo);
+    if ((g_unlock_timeout > 0) && (time - g_last_input > g_unlock_timeout)) {
+        unlock_all(input_buffer);
+    }
+    if (is_injected && ((dwExtraInfo & 0xFFFFFF00) != INJECTED_KEY_ID || dwExtraInfo == INJECTED_KEY_ID)) {
+        // Note: passthrough of injected keys from other tools or
+        //   from Dual-key-remap self when passthrough is requested (remap_id = 0).
         block_input = 0;
+        if ((g_rehook_timeout > 0) && (time - g_last_input > g_rehook_timeout)) {
+            rehook();
+            g_last_input = time;
+        }
     } else {
-        if (LLKHF_INJECTED & flags) {
+        g_last_input = time;
+        if (is_injected) {
             // Note: injected keys are never remapped to avoid complex nested scenarios
             remap_for_input = NULL;
             remap_id = dwExtraInfo & 0x000000FF;
@@ -656,24 +736,29 @@ int handle_input(int scan_code, int virt_code, int direction, DWORD time, DWORD 
             remap_for_input = find_remap_for_virt_code(virt_code);
             if (remap_for_input == NULL) {
                 struct RemapNode * remap_node_iter = g_remap_array[virt_code & 0xFF];
-                while (remap_node_iter &&
-                       !(remap_node_iter->remap->layer == NULL ||
-                         (remap_node_iter->remap->layer && remap_node_iter->remap->layer->state))) {
+                while (remap_node_iter) {
+                    if (remap_node_iter->remap->layer == NULL) {
+                        break;
+                    } else if (remap_node_iter->remap->layer->state) {
+                        break;
+                    }
                     remap_node_iter = remap_node_iter->next;
                 }
                 if (remap_node_iter) {
                     remap_for_input = remap_node_iter->remap;
+                } else {
+                    // auto_unlock if not modifier
                 }
             }
         }
         if (remap_for_input) {
-            if (LLKHF_UP & flags) {
-                block_input = event_remapped_key_up(remap_for_input, time);
+            if (direction == UP) {
+                block_input = event_remapped_key_up(remap_for_input, time, input_buffer);
             } else {
-                block_input = event_remapped_key_down(remap_for_input, time);
+                block_input = event_remapped_key_down(remap_for_input, time, input_buffer);
             }
         } else {
-            block_input = event_other_input(virt_code, LLKHF_UP & flags, time, remap_id);
+            block_input = event_other_input(virt_code, direction, time, remap_id, input_buffer);
         }
     }
     log_handle_input_end(scan_code, virt_code, direction, block_input);
@@ -716,13 +801,14 @@ int load_config_line(char * line, int linenum)
             struct RemapNode * remap_node = new_remap_node(g_remap_list);
             int index = g_remap_list->from->virt_code & 0xFF;
 
-            if (g_remap_list->layer) {
+            if (g_remap_list->layer || (g_remap_array[index] && !g_remap_array[index]->remap->layer)) {
                 remap_node->next = g_remap_array[index];
                 g_remap_array[index] = remap_node;
             } else {
-                struct RemapNode * tail = g_remap_array[index];
-                if (tail) {
-                    while (tail->next) tail = tail->next;
+                if (g_remap_array[index]) {
+                    struct RemapNode * tail = g_remap_array[index];
+                    while (tail->next && tail->next->remap->layer) tail = tail->next;
+                    remap_node->next = tail->next;
                     tail->next = remap_node;
                 } else {
                     g_remap_array[index] = remap_node;
@@ -758,8 +844,21 @@ int load_config_line(char * line, int linenum)
         return 0;
     }
 
+    if (sscanf(line, "rehook_timeout=%d", &g_rehook_timeout)) {
+        return 0;
+    }
+
+    if (sscanf(line, "unlock_timeout=%d", &g_unlock_timeout)) {
+        return 0;
+    }
+
     if (sscanf(line, "scancode=%d", &g_scancode)) {
         if (g_scancode == 1 || g_scancode == 0)
+            return 0;
+    }
+
+    if (sscanf(line, "priority=%d", &g_priority)) {
+        if (g_priority == 1 || g_priority == 0)
             return 0;
     }
 
