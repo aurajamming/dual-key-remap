@@ -32,8 +32,7 @@ void debug_print(const char* color, const char* format, ...) {
     va_end(args);
 }
 
-void send_input(int scan_code, int virt_code, enum Direction direction, int remap_id, struct InputBuffer * input_buffer)
-{
+void send_input(int scan_code, int virt_code, enum Direction direction, int remap_id, struct InputBuffer * input_buffer) {
     if (virt_code) {
         uint32_t n, tail;
         int index;
@@ -125,10 +124,7 @@ LRESULT CALLBACK mouse_callback(int msg_code, WPARAM w_param, LPARAM l_param) {
     return (block_input) ? 1 : CallNextHookEx(NULL, msg_code, w_param, l_param);
 }
 
-LRESULT CALLBACK keyboard_callback(int msg_code, WPARAM w_param, LPARAM l_param)
-{
-DWORD start_ms, end_ms;
-DEBUG(2, start_ms = timeGetTime());
+LRESULT CALLBACK keyboard_callback(int msg_code, WPARAM w_param, LPARAM l_param) {
     int block_input = 0;
     
     // Per MS docs we should only act for HC_ACTION's
@@ -155,9 +151,6 @@ DEBUG(2, start_ms = timeGetTime());
         }
     }
 
-DEBUG(2, end_ms = timeGetTime();
-      if (end_ms-start_ms > 0) debug_print(RED, "\n  Keyboard callback DONE: %lu ms", end_ms-start_ms));
-
     return (block_input) ? 1 : CallNextHookEx(NULL, msg_code, w_param, l_param);
 }
 
@@ -169,25 +162,21 @@ void enable_ansi_support() {
     SetConsoleMode(hConsole, mode);
 }
 
-void create_console()
-{
+void create_console() {
     if (AllocConsole()) {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
         enable_ansi_support();
-        printf("%s== dual-key-remap (version: %s, author: %s, adapted by ulixxe) ==%s\n\n", GREEN, VERSION, AUTHOR, RESET);
     }
 }
 
-void destroy_console()
-{
+void destroy_console() {
     fclose(stdout);
     fclose(stderr);
     FreeConsole();
 }
 
-int load_config_file(wchar_t * path)
-{
+int load_config_file(wchar_t * path) {
     FILE * file;
     char line[255];
 
@@ -208,16 +197,14 @@ int load_config_file(wchar_t * path)
     return load_config_line(NULL, linenum++);
 }
 
-void put_config_path(wchar_t * path)
-{
+void put_config_path(wchar_t * path) {
     HMODULE module = GetModuleHandleW(NULL);
     GetModuleFileNameW(module, path, MAX_PATH);
     path[wcslen(path) - strlen("dual-key-remap.exe")] = '\0';
     wcscat(path, L"config.txt");
 }
 
-void rehook()
-{
+void rehook() {
     UnhookWindowsHookEx(g_keyboard_hook);
     UnhookWindowsHookEx(g_mouse_hook);
     g_mouse_hook = SetWindowsHookEx(WH_MOUSE_LL, mouse_callback, NULL, 0);
@@ -228,34 +215,39 @@ void rehook()
 DWORD WINAPI send_input_thread(LPVOID arg) {
     uint32_t n, tail;
     int index;
-    DWORD start_ms, end_ms;
     struct InputBuffer * input_buffer = (struct InputBuffer *)arg;
     while (1) {
         WaitForSingleObject(ghEvent, INFINITE);
         ResetEvent(ghEvent);
         while (!input_buffer_empty(input_buffer)) {
-            n = input_buffer_move_cons_head(input_buffer, -1, &tail);
+            n = input_buffer_move_cons_head(input_buffer, -2, &tail);
             index = tail & INPUT_BUFFER_MASK;
-            DEBUG(4, debug_print(RED, "\nThread callback: n=%d  index=%d cons.tail=%d cons.head=%d", n, index, input_buffer->cons.pos.tail, input_buffer->cons.pos.head);
-                  debug_print(RED, "\n  dx=%d dy=%d dwFlags=0x%02X", input_buffer->inputs[index].mi.dx, input_buffer->inputs[index].mi.dy, input_buffer->inputs[index].mi.dwFlags);
-                  start_ms = timeGetTime());
             if (n > 0) {
                 SendInput(n, &input_buffer->inputs[index], sizeof(INPUT));
                 input_buffer_update_tail(&input_buffer->cons, tail, n);
             }
-            DEBUG(4, end_ms = timeGetTime();
-                  debug_print(RED, "\n  Thread callback DONE: %lu ms", end_ms-start_ms));
         }
     }
 }
 
-int main()
-{
+void close_all() {
+    UnhookWindowsHookEx(g_keyboard_hook);
+    UnhookWindowsHookEx(g_mouse_hook);
+    if (g_active) g_active = 0;
+    if (ghTimer) DeleteTimerQueueTimer(ghTimerQueue, ghTimer, NULL);
+    CloseHandle(ghEvent);
+    DeleteTimerQueue(ghTimerQueue);
+    unlock_all(&g_input_buffer);
+    free_all();
+}
+
+int main() {
     HANDLE threadHandle;
     DWORD threadId;
 
     // Initialization may print errors to stdout, create a console to show that output.
     create_console();
+    printf("%s== dual-key-remap (version: %s, author: %s, adapted by ulixxe) ==%s\n\n", GREEN, VERSION, AUTHOR, RESET);
 
     HANDLE mutex = CreateMutex(NULL, TRUE, "dual-key-remap.single-instance");
     if (GetLastError() == ERROR_ALREADY_EXISTS)
@@ -313,6 +305,9 @@ int main()
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    close_all();
+    return 0;
 
     end:
         printf("\nPress any key to exit...\n");

@@ -112,8 +112,7 @@ void set_orbital_mouse_speed_curve(const int * speed_curve) {
   state.speed_curve = (speed_curve != NULL) ? speed_curve : init_speed_curve;
 }
 
-void buttons_send(struct MouseState * state, int remap_id, struct InputBuffer * input_buffer)
-{
+void buttons_send(struct MouseState * state, int remap_id, struct InputBuffer * input_buffer) {
     uint32_t n, tail;
     int index;
     n = input_buffer_move_prod_head(input_buffer, &tail);
@@ -194,8 +193,7 @@ void set_orbital_mouse_angle(double angle) {
   state.y -= ORBITAL_MOUSE_RADIUS * cos(angle);
 }
 
-void move_send(struct MouseState * state, int remap_id, struct InputBuffer * input_buffer)
-{
+void move_send(struct MouseState * state, int remap_id, struct InputBuffer * input_buffer) {
     uint32_t n, tail;
     int index;
     n = input_buffer_move_prod_head(input_buffer, &tail);
@@ -285,19 +283,13 @@ void move_send(struct MouseState * state, int remap_id, struct InputBuffer * inp
     input_buffer_update_tail(&input_buffer->prod, tail, n);
 }
 
-VOID CALLBACK move_callback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
-{
-DWORD start_ms, end_ms;
-DEBUG(2, start_ms = timeGetTime());
+VOID CALLBACK move_callback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
   int active = *(int *)lpParam;
   if (active) {
     move_send(&state, 0, &g_input_buffer);
     if (!input_buffer_empty(&g_input_buffer)) {
         SetEvent(ghEvent);
     }
-
-DEBUG(2, end_ms = timeGetTime();
-      if (end_ms-start_ms > 0) debug_print(RED, "\n  Mouse timer callback DONE: %lu ms", end_ms-start_ms));
   }
 }
 

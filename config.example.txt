@@ -1,11 +1,24 @@
 remap_key=SPACE
 when_alone=SPACE
 with_other=RIGHT_CTRL
-with_other=layer0
+when_press=layer_space
+
+remap_key=LEFT_CTRL
+with_other=LEFT_CTRL
+when_press=layer_ctrl
+
+remap_key=LEFT_SHIFT
+with_other=LEFT_SHIFT
+when_press=layer_shift
+
+remap_key=LEFT_ALT
+when_alone=LEFT_ALT
+when_press=layer_alt
 
 # disable Windows Start menu when tapped
 remap_key=LEFT_WIN
 with_other=LEFT_WIN
+when_press=layer_win
 
 # hyper key with simple remapping
 remap_key=RIGHT_ALT
@@ -14,148 +27,177 @@ when_alone=ALT
 when_alone=SHIFT
 when_alone=LEFT_WIN
 
+# layer definition
+define_layer=layer_ctrl_win
+and_layer=layer_ctrl
+and_layer=layer_win
+
+# right win as layer selector
+remap_key=RIGHT_WIN
+when_tap_lock=set_layer_vi
+
+remap_key=RIGHT_WIN
+layer=layer_vi
+when_tap_lock=reset_layer_vi
+when_tap_lock=set_layer_page
+
+remap_key=RIGHT_WIN
+layer=layer_page
+when_tap_lock=reset_layer_page
+when_tap_lock=set_layer_mouse
+
+remap_key=RIGHT_WIN
+layer=layer_mouse
+when_tap_lock=reset_layer_mouse
+
 # layer selectors
 remap_key=LEFT_CTRL
-layer=layer0
-when_alone=layer1
-when_doublepress=layer3
+layer=layer_space
+when_press=layer_vi
+when_doublepress=layer_mouse
 
-# layer1 lock
+# layer definition
+define_layer=layer_vi
+and_layer=layer_ctrl_win
+and_not_layer=layer_alt
+and_not_layer=layer_shift
+
+# layer_vi lock
 remap_key=SPACE
-layer=layer1
-when_tap_lock=layer1
+layer=layer_vi
+when_tap_lock=toggle_layer_vi
 
-# layer2 lock
+# layer_page lock
 remap_key=SPACE
-layer=layer2
-when_tap_lock=layer2
+layer=layer_page
+when_tap_lock=toggle_layer_page
 
-# layer3 lock
+# layer_mouse lock
 remap_key=SPACE
-layer=layer3
-when_tap_lock=layer3
+layer=layer_mouse
+when_tap_lock=toggle_layer_mouse
 
-# first layer for vi movements
+# layer for vi movements
 remap_key=KEY_H
-layer=layer1
+layer=layer_vi
 when_alone=LEFT
 
 remap_key=KEY_J
-layer=layer1
+layer=layer_vi
 when_alone=DOWN
 
 remap_key=KEY_K
-layer=layer1
+layer=layer_vi
 when_alone=UP
 
 remap_key=KEY_L
-layer=layer1
+layer=layer_vi
 when_alone=RIGHT
 
-# second layer
+# layer with page movements
 remap_key=KEY_H
-layer=layer2
+layer=layer_page
 when_alone=HOME
 
 remap_key=KEY_L
-layer=layer2
+layer=layer_page
 when_alone=END
 
-# third layer for mouse emulation
+# layer for mouse emulation
 remap_key=KEY_A
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_LEFT
 
 remap_key=KEY_S
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_DOWN
 
 remap_key=KEY_D
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_UP
 
 remap_key=KEY_F
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_RIGHT
 
 remap_key=KEY_H
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_STEER_LEFT
 
 remap_key=KEY_J
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_BACKWARD
 
 remap_key=KEY_K
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_FORWARD
 
 remap_key=KEY_L
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_STEER_RIGHT
 
 remap_key=KEY_U
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_WHEEL_UP
 
 remap_key=KEY_N
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_WHEEL_DOWN
 
 remap_key=KEY_T
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_WHEEL_LEFT
 
 remap_key=KEY_Y
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_WHEEL_RIGHT
 
 remap_key=KEY_I
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_LBUTTON
 
 remap_key=KEY_O
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_MBUTTON
 
 remap_key=KEY_P
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_RBUTTON
 
 remap_key=KEY_M
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_SBUTTON
 
 remap_key=COMMA
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_SHOLD
 
 remap_key=PERIOD
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_SRELEASE
 
 remap_key=KEY_1
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_LBUTTON_SEL
 
 remap_key=KEY_2
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_MBUTTON_SEL
 
 remap_key=KEY_3
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_RBUTTON_SEL
 
 remap_key=KEY_4
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_XBUTTON1_SEL
 
 remap_key=KEY_5
-layer=layer3
+layer=layer_mouse
 when_alone=MOUSE_XBUTTON2_SEL
 
 # configurations
-hold_delay=70
+hold_delay=60
 tap_timeout=500
 doublepress_timeout=200
 debug=0

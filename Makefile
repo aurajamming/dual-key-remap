@@ -1,10 +1,7 @@
-.PHONY: tests build kill debug release
-
-tests:
-	cl tests.c && .\tests.exe
+.PHONY: build kill debug release
 
 build:
-	cl .\dual-key-remap.c /link user32.lib shell32.lib /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
+	cl /O2 /GL /Gw .\dual-key-remap.c /link user32.lib shell32.lib /ENTRY:mainCRTStartup
 
 kill:
 	@taskkill /f /im "dual-key-remap.exe" || echo dual-key-remap is not running

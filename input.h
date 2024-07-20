@@ -1,7 +1,7 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-//#define DEBUG(cond, x) do { if ((cond & 4 || cond & 2) && g_debug) { x;} } while (0)
+//#define DEBUG(cond, x) do { if ((cond & 1 || cond & 0) && g_debug) { x;} } while (0)
 #define DEBUG(cond, x)
 
 // A semi random value used to identify inputs generated
@@ -30,9 +30,8 @@ union __declspec(align(8)) rte_ring_hts_headtail {
     } pos;
 };
 
-struct InputBuffer
-{
-    INPUT inputs[INPUT_BUFFER_SIZE];
+struct InputBuffer {
+    INPUT inputs[INPUT_BUFFER_SIZE + INPUT_BUFFER_SIZE-2];
     volatile union rte_ring_hts_headtail prod;
     volatile union rte_ring_hts_headtail cons;
 };
@@ -68,7 +67,14 @@ static inline uint32_t input_buffer_move_cons_head(struct InputBuffer * input_bu
         n = (input_buffer->prod.pos.tail - old.pos.head) & INPUT_BUFFER_MASK;
         if (num < 0) {
             ncont = (INPUT_BUFFER_SIZE - old.pos.head) & INPUT_BUFFER_MASK;
-            if (n > ncont && ncont > 0) n = ncont;
+            if (n > ncont && ncont > 0) {
+                if (num < -1) {
+                    CopyMemory(&input_buffer->inputs[INPUT_BUFFER_SIZE],
+                               &input_buffer->inputs[0], (n-ncont)*sizeof(INPUT));
+                } else {
+                    n = ncont;
+                }
+            }
         } else if (n > num) {
             n = num;
         }
@@ -108,6 +114,5 @@ enum Direction {
 void debug_print(const char* color, const char* format, ...);
 void send_input(int scan_code, int virt_code, enum Direction direction, int remap_id, struct InputBuffer *input_buffer);
 void rehook();
-int vk_is_modifier(int code);
 
 #endif
